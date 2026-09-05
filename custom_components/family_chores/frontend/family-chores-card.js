@@ -1,17 +1,23 @@
 class FamilyChoresCard extends HTMLElement{
-  constructor(){super();this.attachShadow({mode:'open'});this._hass=null;this.data={members:[],today_tasks:[],scores:{},weekly_scores:{},weekly_goals:{},rewards:[]};}
+  constructor(){super();this.attachShadow({mode:'open'});this._hass=null;this.view='today';this.data={members:[],today_tasks:[],week_tasks:[],tasks:[],scores:{},weekly_scores:{},weekly_goals:{},rewards:[]};}
   setConfig(config){this.config=config||{};}
   set hass(h){const first=!this._hass;this._hass=h;if(first)this.load();}
   getCardSize(){return 6;}
-  getGridOptions(){return {columns:12,rows:"auto",min_columns:6};}
+  getGridOptions(){return {columns:"full",rows:"auto",min_columns:6};}
   async ws(type,payload={}){return this._hass.callWS({type,...payload});}
   esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   async load(){try{this.data=await this.ws('family_chores/get_data');this.render();}catch(e){this.shadowRoot.innerHTML=`<ha-card><div style="padding:16px">Family Chores: ${this.esc(e.message||e)}</div></ha-card>`;}}
-  memberTasks(member){return (this.data.today_tasks||[]).filter(t=>(t.assignees_current||[]).includes(member));}
+  memberTasks(member){
+    if(this.view==='all')return (this.data.tasks||[]).filter(t=>(t.assignees||[]).includes(member)||(t.rotation||[]).includes(member));
+    const source=this.view==='week'?(this.data.week_tasks||[]):(this.data.today_tasks||[]);
+    return source.filter(t=>(t.assignees_current||[]).includes(member));
+  }
+  dayLabel(ds){if(!ds)return '';const d=new Date(ds+'T12:00:00');return ['So','Mo','Di','Mi','Do','Fr','Sa'][d.getDay()];}
+  recurrenceLabel(t){const m={once:'Einmalig',daily:'Täglich',weekdays:'Wochentage',weekly:'Wöchentlich',every_n_weeks:`Alle ${t.interval_weeks||2} Wochen`,monthly:'Monatlich'};return m[t.recurrence]||t.recurrence||'';}
   render(){
     const cols=Math.max(1,(this.data.members||[]).length);
     this.shadowRoot.innerHTML=`<style>
-      *{box-sizing:border-box}:host{display:block;width:100%;max-width:100%;min-width:0;container-type:inline-size}ha-card{padding:12px;width:100%;max-width:100%;min-width:0;overflow:hidden}.head{display:flex;align-items:center;gap:8px;margin-bottom:12px}.head h2{margin:0;flex:1}
+      *{box-sizing:border-box}:host{display:block;width:100%;max-width:100%;min-width:0;container-type:inline-size}ha-card{padding:12px;width:100%;max-width:100%;min-width:0;overflow:hidden}.head{display:flex;align-items:center;gap:8px;margin-bottom:12px}.head h2{margin:0;flex:1}.tabs{display:flex;gap:6px}.tab.active{background:var(--primary-color);color:var(--text-primary-color);font-weight:700}
       .btn{border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color);border-radius:10px;padding:8px 10px;cursor:pointer}.btn:disabled{opacity:.45;cursor:default}.primary{background:var(--primary-color);color:var(--text-primary-color);font-weight:700}
       .grid{display:grid;grid-template-columns:repeat(${cols},minmax(0,1fr));gap:10px}.person{border:1px solid var(--divider-color);border-radius:16px;padding:10px;min-width:0;background:var(--secondary-background-color)}
       .personHead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}.score{font-weight:800;white-space:nowrap}
@@ -20,10 +26,11 @@ class FamilyChoresCard extends HTMLElement{
       .taskTop{display:flex;gap:8px;align-items:center}.taskTop strong{flex:1}.meta{font-size:.78rem;opacity:.68;margin-top:4px}.done{opacity:.55}.pending{border-style:dashed}.empty{opacity:.5;text-align:center;padding:18px 6px}
       @container (max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@container (max-width:560px){.grid{grid-template-columns:1fr}}
     </style><ha-card>
-      <div class="head"><h2>🏠 Familien-Aufgaben</h2><button id="reload" class="btn">↻</button></div>
+      <div class="head"><h2>🏠 Familien-Aufgaben</h2><div class="tabs"><button class="btn tab ${this.view==='today'?'active':''}" data-view="today">Heute</button><button class="btn tab ${this.view==='week'?'active':''}" data-view="week">Diese Woche</button><button class="btn tab ${this.view==='all'?'active':''}" data-view="all">Alle</button></div><button id="reload" class="btn">↻</button></div>
       <div class="grid">${(this.data.members||[]).map(m=>this.personHtml(m)).join('')}</div>
     </ha-card>`;
     this.shadowRoot.querySelector('#reload').onclick=()=>this.load();
+    this.shadowRoot.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{this.view=b.dataset.view;this.render();});
     this.shadowRoot.querySelectorAll('[data-complete]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{const [task_id,member]=b.dataset.complete.split('|');const r=await this.ws('family_chores/complete',{task_id,member});if(r.status==='pending')alert('Erledigt gemeldet – wartet auf Bestätigung.');await this.load();}catch(e){alert(e.message||e);b.disabled=false;}});
     this.shadowRoot.querySelectorAll('[data-redeem]').forEach(b=>b.onclick=async()=>{const [reward_id,member]=b.dataset.redeem.split('|');const r=(this.data.rewards||[]).find(x=>x.id===reward_id);if(!r)return;if(!confirm(`${member}: „${r.title}“ für ${r.cost} Punkte einlösen?`))return;try{await this.ws('family_chores/redeem_reward',{reward_id,member});await this.load();}catch(e){alert(e.message||e);}});
   }
@@ -34,10 +41,10 @@ class FamilyChoresCard extends HTMLElement{
     const rewards=(this.data.rewards||[]);
     return `<div class="person"><div class="personHead"><strong>${this.esc(member)}</strong><span class="score">⭐ ${score}</span></div>
       <div class="goalWrap"><div class="goalMeta"><span>Wochenziel</span><strong>${weekly} / ${goal} ⭐</strong></div><div class="goalBar"><div class="goalFill" style="width:${pct}%"></div></div></div>
-      ${tasks.length?tasks.map(t=>`<div class="task ${t.completed_today?'done':''} ${t.pending_confirmation?'pending':''}">
+      ${tasks.length?tasks.map(t=>{const individual=t.completion_mode==='individual'&&(t.assignees_current||[]).length>1;const mineDone=individual?(t.completed_members||[]).includes(member):t.completed_today;const minePending=individual?(t.pending_members||[]).includes(member):t.pending_confirmation;const allView=this.view==='all';return `<div class="task ${mineDone?'done':''} ${minePending?'pending':''}">
         <div class="taskTop"><span>${this.esc(t.icon||'✅')}</span><strong>${this.esc(t.title)}</strong>
-        ${t.completed_today?'<span>✅</span>':t.pending_confirmation?'<span>🟡</span>':`<button class="btn primary" data-complete="${this.esc(t.id)}|${this.esc(member)}">Erledigt</button>`}</div>
-        <div class="meta">⭐ ${Number(t.points)||0}${t.due_time?` · ⏰ ${this.esc(t.due_time)}`:''}${t.requires_confirmation?' · Bestätigung':''}</div></div>`).join(''):'<div class="empty">Heute nichts offen 🎉</div>'}
+        ${allView?'':mineDone?'<span>✅</span>':minePending?'<span>🟡</span>':`<button class="btn primary" data-complete="${this.esc(t.id)}|${this.esc(member)}">Erledigt</button>`}</div>
+        <div class="meta">${this.view==='week'?`${this.dayLabel(t.due_date)} · `:''}⭐ ${Number(t.points)||0}${t.due_time?` · ⏰ ${this.esc(t.due_time)}`:''}${t.requires_confirmation?' · Bestätigung':''}${individual?' · jeder einzeln':''}${allView?` · ${this.recurrenceLabel(t)}${t.active===false?' · inaktiv':''}`:''}</div></div>`}).join(''):`<div class="empty">${this.view==='today'?'Heute nichts offen 🎉':this.view==='week'?'Diese Woche nichts geplant':'Keine Aufgaben'}</div>`}
       ${rewards.length?`<div class="rewardList">${rewards.map(r=>`<button class="btn rewardBtn" data-redeem="${this.esc(r.id)}|${this.esc(member)}" ${score<Number(r.cost)?'disabled':''}>${this.esc(r.icon||'🎁')} ${this.esc(r.title)} · ${Number(r.cost)}⭐</button>`).join('')}</div>`:''}
     </div>`;
   }

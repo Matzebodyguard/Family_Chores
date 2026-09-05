@@ -42,15 +42,38 @@ class FamilyChoresManager:
         if r=="monthly":return day.day==max(1,min(28,int(t.get("month_day",start.day))))
         return False
 
-    def _completed(self,task_id,day):
+    def _completed(self,task_id,day,member=None):
         ds=day.isoformat()
-        return any(h.get("task_id")==task_id and h.get("due_date")==ds and h.get("status")=="completed" for h in self.state["history"])
+        return any(
+            h.get("task_id")==task_id and h.get("due_date")==ds and h.get("status")=="completed"
+            and (member is None or h.get("member")==member)
+            for h in self.state["history"]
+        )
 
-    def _pending(self,task_id,day):
+    def _pending(self,task_id,day,member=None):
         ds=day.isoformat()
         for h in reversed(self.state["history"]):
-            if h.get("task_id")==task_id and h.get("due_date")==ds and h.get("status")=="pending":return h
+            if (h.get("task_id")==task_id and h.get("due_date")==ds and h.get("status")=="pending"
+                    and (member is None or h.get("member")==member)):
+                return h
         return None
+
+    def _occurrence(self,t,day):
+        assignees=self._current_assignees(t)
+        mode=t.get("completion_mode","shared")
+        if mode=="individual" and len(assignees)>1:
+            completed_members=[m for m in assignees if self._completed(t["id"],day,m)]
+            pending_members=[m for m in assignees if self._pending(t["id"],day,m)]
+            completed=len(completed_members)==len(assignees)
+            pending=bool(pending_members) and not completed
+        else:
+            completed_members=assignees if self._completed(t["id"],day) else []
+            pending_members=assignees if self._pending(t["id"],day) else []
+            completed=bool(completed_members)
+            pending=bool(pending_members)
+        return {**t,"assignees_current":assignees,"completed_today":completed,
+                "pending_confirmation":pending,"completed_members":completed_members,
+                "pending_members":pending_members,"due_date":day.isoformat()}
 
     def _current_assignees(self,t):
         rot=[x for x in t.get("rotation",[]) if x in self.members]
@@ -59,11 +82,16 @@ class FamilyChoresManager:
         return a or ([self.members[0]] if self.members else [])
 
     def export(self):
-        today=self._today(); tt=[]
-        for t in self.state["tasks"]:
-            if not self._is_due_on(t,today):continue
-            tt.append({**t,"assignees_current":self._current_assignees(t),"completed_today":self._completed(t["id"],today),"pending_confirmation":bool(self._pending(t["id"],today))})
+        today=self._today(); tt=[]; week_tasks=[]
         monday=today.fromordinal(today.toordinal()-today.weekday())
+        sunday=monday.fromordinal(monday.toordinal()+6)
+        for t in self.state["tasks"]:
+            if self._is_due_on(t,today):
+                tt.append(self._occurrence(t,today))
+            for offset in range(7):
+                day=monday.fromordinal(monday.toordinal()+offset)
+                if self._is_due_on(t,day):
+                    week_tasks.append(self._occurrence(t,day))
         weekly={m:0 for m in self.members}
         for h in self.state["history"]:
             if h.get("member") not in weekly:continue
@@ -75,6 +103,7 @@ class FamilyChoresManager:
             "members":self.members,
             "tasks":self.state["tasks"],
             "today_tasks":tt,
+            "week_tasks":week_tasks,
             "scores":{m:int(self.state["scores"].get(m,0)) for m in self.members},
             "weekly_scores":weekly,
             "weekly_goals":{m:max(1,int(self.state["weekly_goals"].get(m,25))) for m in self.members},
@@ -92,6 +121,7 @@ class FamilyChoresManager:
            "assignees":[x for x in data.get("assignees",[]) if x in self.members],
            "rotation":[x for x in data.get("rotation",[]) if x in self.members],"rotation_index":0,
            "points":max(0,int(data.get("points",1))),"requires_confirmation":bool(data.get("requires_confirmation",False)),
+           "completion_mode":"individual" if data.get("completion_mode")=="individual" else "shared",
            "recurrence":data.get("recurrence","once"),"weekdays":[int(x) for x in data.get("weekdays",[])],
            "interval_weeks":max(1,int(data.get("interval_weeks",2))),"month_day":max(1,min(28,int(data.get("month_day",self._today().day)))),
            "start_date":data.get("start_date") or self._today().isoformat(),"due_time":str(data.get("due_time","")).strip(),
@@ -101,12 +131,13 @@ class FamilyChoresManager:
     async def async_update_task(self,task_id,data):
         t=next((x for x in self.state["tasks"] if x["id"]==task_id),None)
         if not t:raise ValueError("Aufgabe nicht gefunden")
-        allowed={"title","icon","assignees","rotation","points","requires_confirmation","recurrence","weekdays","interval_weeks","month_day","start_date","due_time","active"}
+        allowed={"title","icon","assignees","rotation","points","requires_confirmation","completion_mode","recurrence","weekdays","interval_weeks","month_day","start_date","due_time","active"}
         for k in allowed:
             if k in data:t[k]=data[k]
         t["points"]=max(0,int(t.get("points",0)));t["weekdays"]=[int(x) for x in t.get("weekdays",[])]
         t["interval_weeks"]=max(1,int(t.get("interval_weeks",2)));t["month_day"]=max(1,min(28,int(t.get("month_day",1))))
         t["assignees"]=[x for x in t.get("assignees",[]) if x in self.members];t["rotation"]=[x for x in t.get("rotation",[]) if x in self.members]
+        t["completion_mode"]="individual" if t.get("completion_mode")=="individual" else "shared"
         await self._save();return t
 
     async def async_delete_task(self,task_id):
@@ -114,8 +145,14 @@ class FamilyChoresManager:
         if len(self.state["tasks"])==n:raise ValueError("Aufgabe nicht gefunden")
         await self._save()
 
-    def _award_rotate(self,t,member):
+    def _award(self,t,member):
         self.state["scores"][member]=int(self.state["scores"].get(member,0))+int(t.get("points",0))
+
+    def _finish_occurrence(self,t,day):
+        assignees=self._current_assignees(t)
+        individual=t.get("completion_mode")=="individual" and len(assignees)>1
+        finished=all(self._completed(t["id"],day,m) for m in assignees) if individual else self._completed(t["id"],day)
+        if not finished:return
         if t.get("recurrence")=="once":t["completed_once"]=True
         rot=[x for x in t.get("rotation",[]) if x in self.members]
         if rot:t["rotation_index"]=(int(t.get("rotation_index",0))+1)%len(rot)
@@ -124,13 +161,17 @@ class FamilyChoresManager:
         t=next((x for x in self.state["tasks"] if x["id"]==task_id),None)
         if not t:raise ValueError("Aufgabe nicht gefunden")
         today=self._today()
-        if self._completed(task_id,today):return {"status":"already_completed"}
-        if member not in self._current_assignees(t):raise ValueError("Diese Aufgabe ist aktuell nicht dieser Person zugewiesen")
-        self.state["history"]=[h for h in self.state["history"] if not(h.get("task_id")==task_id and h.get("due_date")==today.isoformat() and h.get("status")=="pending")]
+        assignees=self._current_assignees(t)
+        if member not in assignees:raise ValueError("Diese Aufgabe ist aktuell nicht dieser Person zugewiesen")
+        individual=t.get("completion_mode")=="individual" and len(assignees)>1
+        if self._completed(task_id,today,member if individual else None):return {"status":"already_completed"}
+        self.state["history"]=[h for h in self.state["history"] if not(h.get("task_id")==task_id and h.get("due_date")==today.isoformat() and h.get("status")=="pending" and (not individual or h.get("member")==member))]
         status="pending" if t.get("requires_confirmation") else "completed"
         rec={"id":uuid.uuid4().hex[:12],"task_id":task_id,"title":t["title"],"member":member,"points":int(t.get("points",0)),"due_date":today.isoformat(),"completed_at":datetime.now().astimezone().isoformat(timespec="seconds"),"status":status}
         self.state["history"].append(rec)
-        if status=="completed":self._award_rotate(t,member)
+        if status=="completed":
+            self._award(t,member)
+            self._finish_occurrence(t,today)
         await self._save();return {"status":status}
 
     async def async_confirm(self,history_id,approved):
@@ -141,7 +182,9 @@ class FamilyChoresManager:
         t=next((x for x in self.state["tasks"] if x["id"]==rec["task_id"]),None)
         if not t:raise ValueError("Aufgabe nicht gefunden")
         rec["status"]="completed";rec["confirmed_at"]=datetime.now().astimezone().isoformat(timespec="seconds")
-        self._award_rotate(t,rec["member"]);await self._save()
+        self._award(t,rec["member"])
+        due=self._parse_date(rec.get("due_date")) or self._today()
+        self._finish_occurrence(t,due);await self._save()
 
     async def async_adjust_points(self,member,delta,reason=""):
         if member not in self.members:raise ValueError("Unbekannte Person")

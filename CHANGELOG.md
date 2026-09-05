@@ -1,12 +1,23 @@
 # Changelog
 
-## 0.2.3
+## 0.3.0
+- Ansichten Heute, Diese Woche und Alle in der Familienkarte.
+- Neue Aufgabenoption `completion_mode`: gemeinsam oder individuell.
+- Individuelle Erledigung, Bestätigung und Punktevergabe pro Person.
+- Wochenansicht zeigt die fälligen Vorkommen Montag bis Sonntag.
+- Panel-/Landscape-Optimierung beibehalten.
+
+## 0.2.4
+- Karten melden in Sections jetzt `columns: full` und nutzen die gesamte Breite ihrer Section.
+- README um Beispiel für eine Section mit `column_span: 3` ergänzt.
+
+## 0.2.4
 - Breiten-/Responsive-Problem der Karten behoben.
 - Responsive Layouts richten sich jetzt nach der tatsächlichen Kartenbreite statt nach der Bildschirmbreite.
 - Karten auf 100 % Breite mit `min-width: 0` begrenzt.
 - Grid-Optionen für Home-Assistant-Sections ergänzt.
 
-## 0.2.3
+## 0.2.4
 - Verwaltung vollständig aus der Familienkarte ausgelagert.
 - Neue Karte `custom:family-chores-admin-card` ergänzt.
 - Familienkarte enthält nur noch Aufgaben, Wochenziele, Punkte und Belohnungen.

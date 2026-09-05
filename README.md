@@ -35,7 +35,7 @@ Familien-Aufgaben für Home Assistant mit Punktesystem, Wochenzielen, Rotation u
 ## Lovelace-Ressource
 
 ```text
-/family_chores_static/family-chores-card.js?v=0.2.3
+/family_chores_static/family-chores-card.js?v=0.3.0
 ```
 
 ## Karte
@@ -50,14 +50,14 @@ Nach einem Update der JavaScript-Karte die Versionsnummer am Ende der Ressourcen
 anpassen und den Browser bzw. das Wandtablet neu laden.
 
 
-## Separate Verwaltungskarte ab v0.2.3
+## Separate Verwaltungskarte ab v0.2.4
 
 Die Familienansicht enthält keine Verwaltungs-Schaltfläche mehr. Die Verwaltung ist eine eigene Karte.
 
 Zusätzliche Lovelace-Ressource:
 
 ```text
-/family_chores_static/family-chores-admin-card.js?v=0.2.3
+/family_chores_static/family-chores-admin-card.js?v=0.3.0
 ```
 
 Familienkarte:
@@ -73,3 +73,38 @@ type: custom:family-chores-admin-card
 ```
 
 Damit kann die Verwaltung z. B. auf einem separaten, nur für Eltern sichtbaren Dashboard abgelegt werden.
+
+
+## Breite in Sections-Dashboards
+
+Die Karten melden sich ab v0.2.4 als `columns: full` an und nehmen damit immer die komplette
+Breite ihrer **Section** ein.
+
+Wichtig: Soll die Karte über mehrere Dashboard-Spalten reichen, muss auch die umgebende Section
+mehrere Spalten überspannen. Beispiel für drei Spalten:
+
+```yaml
+type: sections
+max_columns: 3
+sections:
+  - type: grid
+    column_span: 3
+    cards:
+      - type: custom:family-chores-card
+        grid_options:
+          columns: full
+          rows: auto
+```
+
+Eine Karte kann aus ihrer eigenen Section heraus nicht selbst die Breite benachbarter Sections übernehmen.
+
+
+## Neu in v0.3.0
+
+- Familienkarte mit **Heute / Diese Woche / Alle**.
+- Bei mehreren Zuständigen kann pro Aufgabe gewählt werden:
+  - **Gemeinsam – einmal erledigen**
+  - **Individuell – jede Person erledigt selbst**
+- Im individuellen Modus erhält jede Person ihre Punkte erst bei ihrer eigenen Erledigung.
+- Bestätigung funktioniert im individuellen Modus ebenfalls je Person.
+- Panel-/Landscape-Layout bleibt erhalten.

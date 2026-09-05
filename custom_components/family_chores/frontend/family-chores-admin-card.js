@@ -3,7 +3,7 @@ class FamilyChoresAdminCard extends HTMLElement{
   setConfig(config){this.config=config||{};}
   set hass(h){const first=!this._hass;this._hass=h;if(first)this.load();}
   getCardSize(){return 6;}
-  getGridOptions(){return {columns:12,rows:"auto",min_columns:6};}
+  getGridOptions(){return {columns:"full",rows:"auto",min_columns:6};}
   async ws(type,payload={}){return this._hass.callWS({type,...payload});}
   esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   async load(){try{this.data=await this.ws('family_chores/get_data');this.render();}catch(e){this.shadowRoot.innerHTML=`<ha-card><div style="padding:16px">Family Chores: ${this.esc(e.message||e)}</div></ha-card>`;}}
@@ -52,13 +52,14 @@ class FamilyChoresAdminCard extends HTMLElement{
   }
   openTask(task=null){
     const d=this.shadowRoot.querySelector('#taskDialog'),m=this.shadowRoot.querySelector('#taskModal'),members=this.data.members||[];
-    const t=task||{title:'',icon:'✅',points:2,assignees:[members[0]].filter(Boolean),rotation:[],recurrence:'daily',weekdays:[],interval_weeks:2,month_day:new Date().getDate(),start_date:this.data.today,due_time:'',requires_confirmation:false,active:true};
+    const t=task||{title:'',icon:'✅',points:2,assignees:[members[0]].filter(Boolean),rotation:[],recurrence:'daily',weekdays:[],interval_weeks:2,month_day:new Date().getDate(),start_date:this.data.today,due_time:'',requires_confirmation:false,completion_mode:'shared',active:true};
     m.innerHTML=`<h2>${task?'Aufgabe bearbeiten':'Neue Aufgabe'}</h2>
       <div class="field"><label>Titel</label><input id="title" value="${this.esc(t.title)}"></div>
       <div class="field"><label>Icon / Emoji</label><input id="icon" value="${this.esc(t.icon||'✅')}"></div>
       <div class="field"><label>Punkte</label><input id="points" type="number" min="0" max="100" value="${Number(t.points)||0}"></div>
       <div class="field"><label>Zuständig</label><div class="checks">${members.map(x=>`<label><input type="checkbox" data-assignee="${this.esc(x)}" ${(t.assignees||[]).includes(x)?'checked':''}> ${this.esc(x)}</label>`).join('')}</div></div>
       <div class="field"><label>Rotation (optional, Reihenfolge)</label><input id="rotation" value="${this.esc((t.rotation||[]).join(', '))}" placeholder="${this.esc(members.join(', '))}"></div>
+      <div class="field"><label>Bei mehreren Zuständigen</label><select id="completionMode"><option value="shared" ${(t.completion_mode||'shared')==='shared'?'selected':''}>Gemeinsam – einmal erledigen</option><option value="individual" ${t.completion_mode==='individual'?'selected':''}>Individuell – jede Person erledigt selbst</option></select></div>
       <div class="field"><label>Wiederholung</label><select id="recurrence">${[['once','Einmalig'],['daily','Täglich'],['weekdays','Bestimmte Wochentage'],['weekly','Wöchentlich'],['every_n_weeks','Alle X Wochen'],['monthly','Monatlich']].map(([v,l])=>`<option value="${v}" ${t.recurrence===v?'selected':''}>${l}</option>`).join('')}</select></div>
       <div class="field"><label>Wochentage</label><div class="checks">${['Mo','Di','Mi','Do','Fr','Sa','So'].map((x,i)=>`<label><input type="checkbox" data-weekday="${i}" ${(t.weekdays||[]).includes(i)?'checked':''}> ${x}</label>`).join('')}</div></div>
       <div class="field"><label>Intervall Wochen</label><input id="interval" type="number" min="1" max="12" value="${Number(t.interval_weeks)||2}"></div>
@@ -72,7 +73,7 @@ class FamilyChoresAdminCard extends HTMLElement{
       const assignees=[...m.querySelectorAll('[data-assignee]:checked')].map(x=>x.dataset.assignee);
       const rotation=m.querySelector('#rotation').value.split(',').map(x=>x.trim()).filter(x=>members.includes(x));
       const weekdays=[...m.querySelectorAll('[data-weekday]:checked')].map(x=>Number(x.dataset.weekday));
-      const payload={title:m.querySelector('#title').value.trim(),icon:m.querySelector('#icon').value.trim(),points:Number(m.querySelector('#points').value||0),assignees,rotation,recurrence:m.querySelector('#recurrence').value,weekdays,interval_weeks:Number(m.querySelector('#interval').value||2),month_day:Number(m.querySelector('#monthday').value||1),start_date:m.querySelector('#start').value,due_time:m.querySelector('#time').value,requires_confirmation:m.querySelector('#confirm').checked,active:m.querySelector('#active').checked};
+      const payload={title:m.querySelector('#title').value.trim(),icon:m.querySelector('#icon').value.trim(),points:Number(m.querySelector('#points').value||0),assignees,rotation,completion_mode:m.querySelector('#completionMode').value,recurrence:m.querySelector('#recurrence').value,weekdays,interval_weeks:Number(m.querySelector('#interval').value||2),month_day:Number(m.querySelector('#monthday').value||1),start_date:m.querySelector('#start').value,due_time:m.querySelector('#time').value,requires_confirmation:m.querySelector('#confirm').checked,active:m.querySelector('#active').checked};
       if(!payload.title){alert('Bitte einen Titel eingeben.');return;}
       try{if(task)await this.ws('family_chores/update_task',{task_id:task.id,task:payload});else await this.ws('family_chores/add_task',{task:payload});d.close();await this.load();}catch(e){alert(e.message||e);}
     };
