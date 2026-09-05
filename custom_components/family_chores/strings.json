@@ -1,0 +1,19 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Family Chores einrichten",
+        "description": "Familienmitglieder kommasepariert eingeben.",
+        "data": {
+          "members": "Familienmitglieder"
+        }
+      }
+    },
+    "error": {
+      "no_members": "Bitte mindestens eine Person angeben."
+    },
+    "abort": {
+      "already_configured": "Family Chores ist bereits eingerichtet."
+    }
+  }
+}
