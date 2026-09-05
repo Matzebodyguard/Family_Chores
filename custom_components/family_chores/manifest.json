@@ -1,7 +1,7 @@
 {
   "domain": "family_chores",
   "name": "Family Chores",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "config_flow": true,
   "documentation": "https://github.com/Matzebodyguard/family_chores",
   "issue_tracker": "https://github.com/Matzebodyguard/family_chores/issues",

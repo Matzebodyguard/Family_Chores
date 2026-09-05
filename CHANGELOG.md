@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0
+- Neue Familienkasse mit gemeinsamem Punktestand.
+- Mitglieder können persönliche Punkte an die Familienkasse spenden.
+- Sparziele mit Titel, Icon, Zielwert, aktuellem Stand, Aktiv-/Abgeschlossen-Status.
+- Aktives Sparziel mit Fortschrittsbalken und „Ziel erreicht“-Anzeige in der Familienkarte.
+- Spendenhistorie in Familien- und Admin-Karte.
+- Sparziel-Verwaltung in der separaten Admin-Karte.
+- Lovelace-Ressourcen ab jetzt dauerhaft ohne `?v=...`-Parameter.
+
+
 ## 0.3.1
 - Erledigte Aufgaben können in der Familienkarte wieder zurückgenommen werden.
 - Bereits gutgeschriebene Punkte werden dabei automatisch abgezogen.

@@ -13,7 +13,7 @@ PLATFORMS=["sensor"]
 async def async_setup(hass:HomeAssistant,config:dict)->bool:
     hass.data.setdefault(DOMAIN,{})
     await hass.http.async_register_static_paths([StaticPathConfig(STATIC_URL,str(Path(__file__).parent/"frontend"),False)])
-    for cmd in (ws_get_data,ws_add_task,ws_update_task,ws_delete_task,ws_complete,ws_undo_complete,ws_confirm,ws_adjust_points,ws_set_weekly_goal,ws_add_reward,ws_update_reward,ws_delete_reward,ws_redeem_reward):
+    for cmd in (ws_get_data,ws_add_task,ws_update_task,ws_delete_task,ws_complete,ws_undo_complete,ws_confirm,ws_adjust_points,ws_set_weekly_goal,ws_add_reward,ws_update_reward,ws_delete_reward,ws_redeem_reward,ws_add_savings_goal,ws_update_savings_goal,ws_delete_savings_goal,ws_donate):
         websocket_api.async_register_command(hass,cmd)
     return True
 
@@ -118,3 +118,29 @@ async def ws_redeem_reward(hass,connection,msg):
     try:
         await _manager(hass).async_redeem_reward(msg["reward_id"],msg["member"]);connection.send_result(msg["id"],{"ok":True})
     except ValueError as e:connection.send_error(msg["id"],"redeem_failed",str(e))
+
+
+@websocket_api.websocket_command({vol.Required("type"):"family_chores/add_savings_goal",vol.Required("goal"):dict})
+@websocket_api.async_response
+async def ws_add_savings_goal(hass,connection,msg):
+    try:connection.send_result(msg["id"],await _manager(hass).async_add_savings_goal(msg["goal"]))
+    except ValueError as e:connection.send_error(msg["id"],"savings_goal_failed",str(e))
+
+@websocket_api.websocket_command({vol.Required("type"):"family_chores/update_savings_goal",vol.Required("goal_id"):str,vol.Required("goal"):dict})
+@websocket_api.async_response
+async def ws_update_savings_goal(hass,connection,msg):
+    try:connection.send_result(msg["id"],await _manager(hass).async_update_savings_goal(msg["goal_id"],msg["goal"]))
+    except ValueError as e:connection.send_error(msg["id"],"savings_goal_failed",str(e))
+
+@websocket_api.websocket_command({vol.Required("type"):"family_chores/delete_savings_goal",vol.Required("goal_id"):str})
+@websocket_api.async_response
+async def ws_delete_savings_goal(hass,connection,msg):
+    try:
+        await _manager(hass).async_delete_savings_goal(msg["goal_id"]);connection.send_result(msg["id"],{"ok":True})
+    except ValueError as e:connection.send_error(msg["id"],"savings_goal_failed",str(e))
+
+@websocket_api.websocket_command({vol.Required("type"):"family_chores/donate",vol.Required("member"):str,vol.Required("amount"):int,vol.Optional("goal_id",default=""):str})
+@websocket_api.async_response
+async def ws_donate(hass,connection,msg):
+    try:connection.send_result(msg["id"],await _manager(hass).async_donate(msg["member"],msg["amount"],msg["goal_id"]))
+    except ValueError as e:connection.send_error(msg["id"],"donation_failed",str(e))

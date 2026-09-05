@@ -9,12 +9,12 @@ class FamilyChoresManager:
     def __init__(self,hass:HomeAssistant,members:list[str]):
         self.hass=hass; self.members=members
         self.store=Store(hass,STORE_VERSION,STORE_KEY)
-        self.state={"tasks":[],"history":[],"scores":{},"weekly_goals":{},"rewards":[]}
+        self.state={"tasks":[],"history":[],"scores":{},"weekly_goals":{},"rewards":[],"family_fund_balance":0,"savings_goals":[]}
 
     async def async_initialize(self):
         stored=await self.store.async_load()
         if stored:self.state.update(stored)
-        self.state.setdefault("tasks",[]);self.state.setdefault("history",[]);self.state.setdefault("scores",{});self.state.setdefault("weekly_goals",{});self.state.setdefault("rewards",[])
+        self.state.setdefault("tasks",[]);self.state.setdefault("history",[]);self.state.setdefault("scores",{});self.state.setdefault("weekly_goals",{});self.state.setdefault("rewards",[]);self.state.setdefault("family_fund_balance",0);self.state.setdefault("savings_goals",[])
         for m in self.members:self.state["scores"].setdefault(m,0);self.state["weekly_goals"].setdefault(m,25)
         await self._save()
 
@@ -109,6 +109,10 @@ class FamilyChoresManager:
             "weekly_goals":{m:max(1,int(self.state["weekly_goals"].get(m,25))) for m in self.members},
             "rewards":[r for r in self.state["rewards"] if r.get("active",True)],
             "all_rewards":self.state["rewards"],
+            "family_fund_balance":int(self.state.get("family_fund_balance",0)),
+            "savings_goals":self.state.get("savings_goals",[]),
+            "active_savings_goal":next((g for g in self.state.get("savings_goals",[]) if g.get("active",False) and not g.get("completed",False)),None),
+            "donation_history":[h for h in self.state["history"] if h.get("status")=="donation"][-100:],
             "history":self.state["history"][-200:],
             "today":today.isoformat(),
             "week_start":monday.isoformat(),
@@ -235,6 +239,72 @@ class FamilyChoresManager:
         if member not in self.members:raise ValueError("Unbekannte Person")
         self.state["weekly_goals"][member]=max(1,int(goal))
         await self._save()
+
+    async def async_add_savings_goal(self,data):
+        title=str(data.get("title","")).strip()
+        if not title:raise ValueError("Sparziel braucht einen Titel")
+        goal={"id":uuid.uuid4().hex[:12],"title":title,
+              "icon":str(data.get("icon","🎯")).strip() or "🎯",
+              "target":max(1,int(data.get("target",100))),
+              "current":max(0,int(data.get("current",0))),
+              "active":bool(data.get("active",False)),
+              "completed":bool(data.get("completed",False))}
+        if goal["active"]:
+            for g in self.state["savings_goals"]:g["active"]=False
+        self.state["savings_goals"].append(goal)
+        await self._save();return goal
+
+    async def async_update_savings_goal(self,goal_id,data):
+        g=next((x for x in self.state["savings_goals"] if x["id"]==goal_id),None)
+        if not g:raise ValueError("Sparziel nicht gefunden")
+        for k in ("title","icon","target","active","completed"):
+            if k in data:g[k]=data[k]
+        g["title"]=str(g.get("title","")).strip()
+        if not g["title"]:raise ValueError("Sparziel braucht einen Titel")
+        g["icon"]=str(g.get("icon","🎯")).strip() or "🎯"
+        g["target"]=max(1,int(g.get("target",100)))
+        g["active"]=bool(g.get("active",False))
+        g["completed"]=bool(g.get("completed",False))
+        if g["active"]:
+            g["completed"]=False
+            for other in self.state["savings_goals"]:
+                if other["id"]!=goal_id:other["active"]=False
+        if g["completed"]:g["active"]=False
+        await self._save();return g
+
+    async def async_delete_savings_goal(self,goal_id):
+        n=len(self.state["savings_goals"])
+        self.state["savings_goals"]=[x for x in self.state["savings_goals"] if x["id"]!=goal_id]
+        if len(self.state["savings_goals"])==n:raise ValueError("Sparziel nicht gefunden")
+        await self._save()
+
+    async def async_donate(self,member,amount,goal_id=""):
+        if member not in self.members:raise ValueError("Unbekannte Person")
+        amount=int(amount)
+        if amount<=0:raise ValueError("Spende muss größer als 0 sein")
+        balance=int(self.state["scores"].get(member,0))
+        if balance<amount:raise ValueError(f"Es fehlen noch {amount-balance} Punkte")
+        goal=None
+        if goal_id:
+            goal=next((x for x in self.state["savings_goals"] if x["id"]==goal_id),None)
+            if not goal:raise ValueError("Sparziel nicht gefunden")
+        else:
+            goal=next((x for x in self.state["savings_goals"] if x.get("active",False) and not x.get("completed",False)),None)
+        self.state["scores"][member]=balance-amount
+        self.state["family_fund_balance"]=int(self.state.get("family_fund_balance",0))+amount
+        if goal:
+            goal["current"]=int(goal.get("current",0))+amount
+        self.state["history"].append({
+            "id":uuid.uuid4().hex[:12],"task_id":"",
+            "title":f"Spende: {goal['title']}" if goal else "Spende an Familienkasse",
+            "member":member,"points":-amount,"family_points":amount,
+            "goal_id":goal["id"] if goal else "",
+            "due_date":self._today().isoformat(),
+            "completed_at":datetime.now().astimezone().isoformat(timespec="seconds"),
+            "status":"donation"
+        })
+        await self._save()
+        return {"ok":True,"family_fund_balance":self.state["family_fund_balance"]}
 
     async def async_add_reward(self,data):
         title=str(data.get("title","")).strip()

@@ -35,7 +35,7 @@ Familien-Aufgaben für Home Assistant mit Punktesystem, Wochenzielen, Rotation u
 ## Lovelace-Ressource
 
 ```text
-/family_chores_static/family-chores-card.js?v=0.3.1
+/family_chores_static/family-chores-card.js
 ```
 
 ## Karte
@@ -57,7 +57,7 @@ Die Familienansicht enthält keine Verwaltungs-Schaltfläche mehr. Die Verwaltun
 Zusätzliche Lovelace-Ressource:
 
 ```text
-/family_chores_static/family-chores-admin-card.js?v=0.3.1
+/family_chores_static/family-chores-admin-card.js
 ```
 
 Familienkarte:
@@ -108,3 +108,29 @@ Eine Karte kann aus ihrer eigenen Section heraus nicht selbst die Breite benachb
 - Im individuellen Modus erhält jede Person ihre Punkte erst bei ihrer eigenen Erledigung.
 - Bestätigung funktioniert im individuellen Modus ebenfalls je Person.
 - Panel-/Landscape-Layout bleibt erhalten.
+
+
+## Familienkasse und Sparziele (v0.4.0)
+
+Family Chores enthält jetzt eine gemeinsame **Familienkasse**.
+
+- Jedes Familienmitglied kann eigene Punkte an die Familienkasse spenden.
+- Gespendete Punkte werden vom persönlichen Punktestand abgezogen.
+- Ein aktives Sparziel (z. B. Freizeitpark) wird mit Fortschrittsbalken auf der Familienkarte angezeigt.
+- Mehrere Sparziele können in der Admin-Karte angelegt werden; eines davon kann aktiv sein.
+- Erreicht das aktive Ziel seinen Zielwert, erscheint **🎉 Ziel erreicht!**.
+- Die letzten Spenden sind auf Familien- und Admin-Karte sichtbar.
+- Sparziele können bearbeitet, aktiviert, abgeschlossen und gelöscht werden.
+- Beim Löschen eines Sparziels bleiben bereits gespendete Punkte in der Familienkasse.
+
+### Lovelace-Ressourcen
+
+Die Ressourcen werden ab v0.4.0 bewusst **ohne Versionsparameter** eingebunden:
+
+```text
+/family_chores_static/family-chores-card.js
+/family_chores_static/family-chores-admin-card.js
+```
+
+Damit müssen die Ressourcen-URLs bei zukünftigen Releases nicht mehr angepasst werden.
+Nach einem Update genügt normalerweise ein Home-Assistant-Neustart und Neuladen des Dashboards.

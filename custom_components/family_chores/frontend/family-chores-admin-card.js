@@ -1,5 +1,5 @@
 class FamilyChoresAdminCard extends HTMLElement{
-  constructor(){super();this.attachShadow({mode:'open'});this._hass=null;this.data={members:[],today_tasks:[],tasks:[],scores:{},weekly_scores:{},weekly_goals:{},rewards:[],all_rewards:[],history:[]};}
+  constructor(){super();this.attachShadow({mode:'open'});this._hass=null;this.data={members:[],today_tasks:[],tasks:[],scores:{},weekly_scores:{},weekly_goals:{},rewards:[],all_rewards:[],history:[],family_fund_balance:0,savings_goals:[],active_savings_goal:null,donation_history:[]};}
   setConfig(config){this.config=config||{};}
   set hass(h){const first=!this._hass;this._hass=h;if(first)this.load();}
   getCardSize(){return 6;}
@@ -14,17 +14,18 @@ class FamilyChoresAdminCard extends HTMLElement{
       *{box-sizing:border-box}:host{display:block;width:100%;max-width:100%;min-width:0;container-type:inline-size}ha-card{padding:12px;width:100%;max-width:100%;min-width:0;overflow:hidden}.head{display:flex;align-items:center;gap:8px;margin-bottom:12px}.head h2,.head h3{margin:0;flex:1}
       .btn{border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color);border-radius:10px;padding:8px 10px;cursor:pointer}.primary{background:var(--primary-color);color:var(--text-primary-color);font-weight:700}
       .adminList{display:grid;gap:8px}.adminTask{display:flex;gap:8px;align-items:center;border:1px solid var(--divider-color);border-radius:12px;padding:9px}.grow{flex:1}.meta{font-size:.78rem;opacity:.68;margin-top:4px}.empty{opacity:.5;text-align:center;padding:18px 6px}
-      .pendingBox,.goals,.rewardsAdmin{margin-top:16px}.goalRow,.rewardRow{display:flex;gap:8px;align-items:center;border:1px solid var(--divider-color);border-radius:12px;padding:9px;margin:7px 0}.goalRow input{width:90px;padding:7px;border-radius:8px;border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color)}.pendingRow{display:flex;gap:8px;align-items:center;border:1px dashed var(--warning-color,var(--divider-color));padding:9px;border-radius:12px;margin:7px 0}
+      .pendingBox,.goals,.rewardsAdmin,.fundAdmin{margin-top:16px}.goalRow,.rewardRow,.fundRow{display:flex;gap:8px;align-items:center;border:1px solid var(--divider-color);border-radius:12px;padding:9px;margin:7px 0}.goalRow input{width:90px;padding:7px;border-radius:8px;border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color)}.pendingRow{display:flex;gap:8px;align-items:center;border:1px dashed var(--warning-color,var(--divider-color));padding:9px;border-radius:12px;margin:7px 0}
       dialog{border:0;border-radius:18px;padding:0;background:var(--card-background-color);color:var(--primary-text-color);width:min(620px,94vw);max-height:90vh}.modal{padding:18px;overflow:auto;max-height:90vh}
       .field{display:grid;gap:5px;margin:10px 0}.field input,.field select{width:100%;padding:9px;border:1px solid var(--divider-color);border-radius:9px;background:var(--card-background-color);color:var(--primary-text-color)}
       .checks{display:flex;gap:10px;flex-wrap:wrap}.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
-      @container (max-width:650px){.adminTask,.goalRow,.rewardRow,.pendingRow{align-items:stretch;flex-wrap:wrap}.adminTask .grow,.goalRow .grow,.rewardRow .grow,.pendingRow .grow{flex-basis:100%}}
+      @container (max-width:650px){.adminTask,.goalRow,.rewardRow,.fundRow,.pendingRow{align-items:stretch;flex-wrap:wrap}.adminTask .grow,.goalRow .grow,.rewardRow .grow,.fundRow .grow,.pendingRow .grow{flex-basis:100%}}
     </style><ha-card>
       <div class="head"><h2>🔧 Familien-Aufgaben · Verwaltung</h2><button id="reload" class="btn">↻</button></div>
       ${this.adminHtml()}
       <dialog id="taskDialog"><div class="modal" id="taskModal"></div></dialog>
       <dialog id="pointsDialog"><div class="modal" id="pointsModal"></div></dialog>
       <dialog id="rewardDialog"><div class="modal" id="rewardModal"></div></dialog>
+      <dialog id="savingsDialog"><div class="modal" id="savingsModal"></div></dialog>
     </ha-card>`;
     this.shadowRoot.querySelector('#reload').onclick=()=>this.load();
     this.bindAdmin();
@@ -34,6 +35,10 @@ class FamilyChoresAdminCard extends HTMLElement{
     return `<div class="adminPanel"><div class="head"><h3 style="margin:0">Aufgaben</h3><button id="addTask" class="btn primary">＋ Aufgabe</button><button id="adjustPoints" class="btn">⭐ Punkte</button><button id="addReward" class="btn">🎁 Belohnung</button></div>
       <div class="adminList">${(this.data.tasks||[]).map(t=>`<div class="adminTask"><span>${this.esc(t.icon||'✅')}</span><div class="grow"><strong>${this.esc(t.title)}</strong><div class="meta">${this.esc(this.recurrenceLabel(t))} · ⭐ ${Number(t.points)||0} · ${(t.rotation?.length?`Rotation: ${t.rotation.join(' → ')}`:(t.assignees||[]).join(', '))}</div></div><button class="btn" data-edit="${t.id}">Bearbeiten</button><button class="btn" data-del="${t.id}">🗑️</button></div>`).join('')}</div>
       <div class="goals"><h3>🎯 Wochenziele</h3>${(this.data.members||[]).map(m=>`<div class="goalRow"><div class="grow"><strong>${this.esc(m)}</strong><div class="meta">Punkte, die in einer Woche erreicht werden sollen</div></div><input type="number" min="1" max="999" data-goal="${this.esc(m)}" value="${Number(this.data.weekly_goals?.[m]||25)}"><button class="btn" data-save-goal="${this.esc(m)}">Speichern</button></div>`).join('')}</div>
+      <div class="fundAdmin"><div class="head"><h3>💰 Familienkasse · ${Number(this.data.family_fund_balance||0)} ⭐</h3><button id="addSavingsGoal" class="btn">＋ Sparziel</button></div>
+        ${(this.data.savings_goals||[]).length?(this.data.savings_goals||[]).map(g=>`<div class="fundRow"><span>${this.esc(g.icon||'🎯')}</span><div class="grow"><strong>${this.esc(g.title)}</strong><div class="meta">${Number(g.current||0)} / ${Number(g.target||0)} ⭐ · ${g.completed?'abgeschlossen':g.active?'aktiv':'inaktiv'}</div></div><button class="btn" data-edit-savings="${g.id}">Bearbeiten</button><button class="btn" data-del-savings="${g.id}">🗑️</button></div>`).join(''):'<div class="empty">Noch kein Sparziel angelegt.</div>'}
+        ${(this.data.donation_history||[]).length?`<div class="meta" style="margin-top:8px"><strong>Letzte Spenden:</strong> ${(this.data.donation_history||[]).slice(-8).reverse().map(h=>`${this.esc(h.member)} +${Number(h.family_points||Math.abs(h.points||0))}⭐`).join(' · ')}</div>`:''}
+      </div>
       <div class="rewardsAdmin"><h3>🎁 Belohnungen</h3>${(this.data.all_rewards||[]).length?(this.data.all_rewards||[]).map(r=>`<div class="rewardRow"><span>${this.esc(r.icon||'🎁')}</span><div class="grow"><strong>${this.esc(r.title)}</strong><div class="meta">${Number(r.cost)} Punkte · ${r.active===false?'inaktiv':'aktiv'}</div></div><button class="btn" data-edit-reward="${r.id}">Bearbeiten</button><button class="btn" data-del-reward="${r.id}">🗑️</button></div>`).join(''):'<div class="empty">Noch keine Belohnungen angelegt.</div>'}</div>
       ${pending.length?`<div class="pendingBox"><h3>Wartet auf Bestätigung</h3>${pending.map(h=>`<div class="pendingRow"><div class="grow"><strong>${this.esc(h.member)}: ${this.esc(h.title)}</strong><div class="meta">⭐ ${h.points}</div></div><button class="btn primary" data-confirm="${h.id}">Bestätigen</button><button class="btn" data-reject="${h.id}">Zurückgeben</button></div>`).join('')}</div>`:''}
     </div>`;
@@ -46,6 +51,9 @@ class FamilyChoresAdminCard extends HTMLElement{
     this.shadowRoot.querySelectorAll('[data-reject]').forEach(b=>b.onclick=async()=>{await this.ws('family_chores/confirm',{history_id:b.dataset.reject,approved:false});await this.load();});
     this.shadowRoot.querySelector('#adjustPoints').onclick=()=>this.openPoints();
     this.shadowRoot.querySelector('#addReward').onclick=()=>this.openReward();
+    this.shadowRoot.querySelector('#addSavingsGoal').onclick=()=>this.openSavingsGoal();
+    this.shadowRoot.querySelectorAll('[data-edit-savings]').forEach(b=>b.onclick=()=>this.openSavingsGoal((this.data.savings_goals||[]).find(g=>g.id===b.dataset.editSavings)));
+    this.shadowRoot.querySelectorAll('[data-del-savings]').forEach(b=>b.onclick=async()=>{const g=(this.data.savings_goals||[]).find(x=>x.id===b.dataset.delSavings);if(confirm(`Sparziel „${g?.title||''}“ wirklich löschen? Bereits gespendete Punkte bleiben in der Familienkasse.`)){await this.ws('family_chores/delete_savings_goal',{goal_id:b.dataset.delSavings});await this.load();}});
     this.shadowRoot.querySelectorAll('[data-save-goal]').forEach(b=>b.onclick=async()=>{const m=b.dataset.saveGoal;const input=this.shadowRoot.querySelector(`[data-goal="${CSS.escape(m)}"]`);await this.ws('family_chores/set_weekly_goal',{member:m,goal:Number(input.value||25)});await this.load();});
     this.shadowRoot.querySelectorAll('[data-edit-reward]').forEach(b=>b.onclick=()=>this.openReward((this.data.all_rewards||[]).find(r=>r.id===b.dataset.editReward)));
     this.shadowRoot.querySelectorAll('[data-del-reward]').forEach(b=>b.onclick=async()=>{const r=(this.data.all_rewards||[]).find(x=>x.id===b.dataset.delReward);if(confirm(`Belohnung „${r?.title||''}“ wirklich löschen?`)){await this.ws('family_chores/delete_reward',{reward_id:b.dataset.delReward});await this.load();}});
@@ -79,6 +87,21 @@ class FamilyChoresAdminCard extends HTMLElement{
     };
     d.showModal();
   }
+  openSavingsGoal(goal=null){
+    const d=this.shadowRoot.querySelector('#savingsDialog'),m=this.shadowRoot.querySelector('#savingsModal');
+    const g=goal||{title:'',icon:'🎯',target:100,active:!(this.data.savings_goals||[]).some(x=>x.active),completed:false};
+    m.innerHTML=`<h2>${goal?'Sparziel bearbeiten':'Neues Sparziel'}</h2>
+      <div class="field"><label>Titel</label><input id="savingsTitle" value="${this.esc(g.title||'')}" placeholder="z. B. Freizeitpark"></div>
+      <div class="field"><label>Icon / Emoji</label><input id="savingsIcon" value="${this.esc(g.icon||'🎯')}"></div>
+      <div class="field"><label>Ziel in Punkten</label><input id="savingsTarget" type="number" min="1" max="99999" value="${Number(g.target)||100}"></div>
+      ${goal?`<div class="meta">Bereits gesammelt: ${Number(g.current||0)} ⭐</div>`:''}
+      <div class="checks"><label><input id="savingsActive" type="checkbox" ${g.active?'checked':''}> Als aktives Sparziel anzeigen</label><label><input id="savingsCompleted" type="checkbox" ${g.completed?'checked':''}> Abgeschlossen</label></div>
+      <div class="actions"><button id="savingsCancel" class="btn">Abbrechen</button><button id="savingsSave" class="btn primary">Speichern</button></div>`;
+    m.querySelector('#savingsCancel').onclick=()=>d.close();
+    m.querySelector('#savingsSave').onclick=async()=>{const payload={title:m.querySelector('#savingsTitle').value.trim(),icon:m.querySelector('#savingsIcon').value.trim(),target:Number(m.querySelector('#savingsTarget').value||1),active:m.querySelector('#savingsActive').checked,completed:m.querySelector('#savingsCompleted').checked};if(!payload.title){alert('Bitte einen Titel eingeben.');return;}try{if(goal)await this.ws('family_chores/update_savings_goal',{goal_id:goal.id,goal:payload});else await this.ws('family_chores/add_savings_goal',{goal:payload});d.close();await this.load();}catch(e){alert(e.message||e);}};
+    d.showModal();
+  }
+
   openReward(reward=null){
     const d=this.shadowRoot.querySelector('#rewardDialog'),m=this.shadowRoot.querySelector('#rewardModal');
     const r=reward||{title:'',icon:'🎁',cost:25,active:true};
