@@ -3,6 +3,7 @@ class FamilyChoresCard extends HTMLElement{
   setConfig(config){this.config=config||{};}
   set hass(h){const first=!this._hass;this._hass=h;if(first)this.load();}
   getCardSize(){return 6;}
+  getGridOptions(){return {columns:12,rows:"auto",min_columns:6};}
   async ws(type,payload={}){return this._hass.callWS({type,...payload});}
   esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   async load(){try{this.data=await this.ws('family_chores/get_data');this.render();}catch(e){this.shadowRoot.innerHTML=`<ha-card><div style="padding:16px">Family Chores: ${this.esc(e.message||e)}</div></ha-card>`;}}
@@ -10,14 +11,14 @@ class FamilyChoresCard extends HTMLElement{
   render(){
     const cols=Math.max(1,(this.data.members||[]).length);
     this.shadowRoot.innerHTML=`<style>
-      *{box-sizing:border-box}:host{display:block}ha-card{padding:12px}.head{display:flex;align-items:center;gap:8px;margin-bottom:12px}.head h2{margin:0;flex:1}
+      *{box-sizing:border-box}:host{display:block;width:100%;max-width:100%;min-width:0;container-type:inline-size}ha-card{padding:12px;width:100%;max-width:100%;min-width:0;overflow:hidden}.head{display:flex;align-items:center;gap:8px;margin-bottom:12px}.head h2{margin:0;flex:1}
       .btn{border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color);border-radius:10px;padding:8px 10px;cursor:pointer}.btn:disabled{opacity:.45;cursor:default}.primary{background:var(--primary-color);color:var(--text-primary-color);font-weight:700}
       .grid{display:grid;grid-template-columns:repeat(${cols},minmax(0,1fr));gap:10px}.person{border:1px solid var(--divider-color);border-radius:16px;padding:10px;min-width:0;background:var(--secondary-background-color)}
       .personHead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}.score{font-weight:800;white-space:nowrap}
       .goalWrap{margin:6px 0 10px}.goalMeta{display:flex;justify-content:space-between;gap:8px;font-size:.78rem;opacity:.78;margin-bottom:4px}.goalBar{height:9px;border-radius:999px;background:var(--divider-color);overflow:hidden}.goalFill{height:100%;background:var(--primary-color);border-radius:999px}
       .rewardList{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.rewardBtn{font-size:.78rem;padding:6px 8px}.task{border:1px solid var(--divider-color);border-radius:12px;padding:9px;margin:7px 0;background:var(--card-background-color)}
       .taskTop{display:flex;gap:8px;align-items:center}.taskTop strong{flex:1}.meta{font-size:.78rem;opacity:.68;margin-top:4px}.done{opacity:.55}.pending{border-style:dashed}.empty{opacity:.5;text-align:center;padding:18px 6px}
-      @media(max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.grid{grid-template-columns:1fr}}
+      @container (max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@container (max-width:560px){.grid{grid-template-columns:1fr}}
     </style><ha-card>
       <div class="head"><h2>🏠 Familien-Aufgaben</h2><button id="reload" class="btn">↻</button></div>
       <div class="grid">${(this.data.members||[]).map(m=>this.personHtml(m)).join('')}</div>

@@ -3,6 +3,7 @@ class FamilyChoresAdminCard extends HTMLElement{
   setConfig(config){this.config=config||{};}
   set hass(h){const first=!this._hass;this._hass=h;if(first)this.load();}
   getCardSize(){return 6;}
+  getGridOptions(){return {columns:12,rows:"auto",min_columns:6};}
   async ws(type,payload={}){return this._hass.callWS({type,...payload});}
   esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   async load(){try{this.data=await this.ws('family_chores/get_data');this.render();}catch(e){this.shadowRoot.innerHTML=`<ha-card><div style="padding:16px">Family Chores: ${this.esc(e.message||e)}</div></ha-card>`;}}
@@ -10,14 +11,14 @@ class FamilyChoresAdminCard extends HTMLElement{
   recurrenceLabel(t){const m={once:'Einmalig',daily:'Täglich',weekdays:'Wochentage',weekly:'Wöchentlich',every_n_weeks:`Alle ${t.interval_weeks||2} Wochen`,monthly:'Monatlich'};return m[t.recurrence]||t.recurrence;}
   render(){
     this.shadowRoot.innerHTML=`<style>
-      *{box-sizing:border-box}:host{display:block}ha-card{padding:12px}.head{display:flex;align-items:center;gap:8px;margin-bottom:12px}.head h2,.head h3{margin:0;flex:1}
+      *{box-sizing:border-box}:host{display:block;width:100%;max-width:100%;min-width:0;container-type:inline-size}ha-card{padding:12px;width:100%;max-width:100%;min-width:0;overflow:hidden}.head{display:flex;align-items:center;gap:8px;margin-bottom:12px}.head h2,.head h3{margin:0;flex:1}
       .btn{border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color);border-radius:10px;padding:8px 10px;cursor:pointer}.primary{background:var(--primary-color);color:var(--text-primary-color);font-weight:700}
       .adminList{display:grid;gap:8px}.adminTask{display:flex;gap:8px;align-items:center;border:1px solid var(--divider-color);border-radius:12px;padding:9px}.grow{flex:1}.meta{font-size:.78rem;opacity:.68;margin-top:4px}.empty{opacity:.5;text-align:center;padding:18px 6px}
       .pendingBox,.goals,.rewardsAdmin{margin-top:16px}.goalRow,.rewardRow{display:flex;gap:8px;align-items:center;border:1px solid var(--divider-color);border-radius:12px;padding:9px;margin:7px 0}.goalRow input{width:90px;padding:7px;border-radius:8px;border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color)}.pendingRow{display:flex;gap:8px;align-items:center;border:1px dashed var(--warning-color,var(--divider-color));padding:9px;border-radius:12px;margin:7px 0}
       dialog{border:0;border-radius:18px;padding:0;background:var(--card-background-color);color:var(--primary-text-color);width:min(620px,94vw);max-height:90vh}.modal{padding:18px;overflow:auto;max-height:90vh}
       .field{display:grid;gap:5px;margin:10px 0}.field input,.field select{width:100%;padding:9px;border:1px solid var(--divider-color);border-radius:9px;background:var(--card-background-color);color:var(--primary-text-color)}
       .checks{display:flex;gap:10px;flex-wrap:wrap}.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
-      @media(max-width:650px){.adminTask,.goalRow,.rewardRow,.pendingRow{align-items:stretch;flex-wrap:wrap}.adminTask .grow,.goalRow .grow,.rewardRow .grow,.pendingRow .grow{flex-basis:100%}}
+      @container (max-width:650px){.adminTask,.goalRow,.rewardRow,.pendingRow{align-items:stretch;flex-wrap:wrap}.adminTask .grow,.goalRow .grow,.rewardRow .grow,.pendingRow .grow{flex-basis:100%}}
     </style><ha-card>
       <div class="head"><h2>🔧 Familien-Aufgaben · Verwaltung</h2><button id="reload" class="btn">↻</button></div>
       ${this.adminHtml()}

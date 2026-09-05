@@ -35,7 +35,7 @@ Familien-Aufgaben für Home Assistant mit Punktesystem, Wochenzielen, Rotation u
 ## Lovelace-Ressource
 
 ```text
-/family_chores_static/family-chores-card.js?v=0.2.2
+/family_chores_static/family-chores-card.js?v=0.2.3
 ```
 
 ## Karte
@@ -50,14 +50,14 @@ Nach einem Update der JavaScript-Karte die Versionsnummer am Ende der Ressourcen
 anpassen und den Browser bzw. das Wandtablet neu laden.
 
 
-## Separate Verwaltungskarte ab v0.2.2
+## Separate Verwaltungskarte ab v0.2.3
 
 Die Familienansicht enthält keine Verwaltungs-Schaltfläche mehr. Die Verwaltung ist eine eigene Karte.
 
 Zusätzliche Lovelace-Ressource:
 
 ```text
-/family_chores_static/family-chores-admin-card.js?v=0.2.2
+/family_chores_static/family-chores-admin-card.js?v=0.2.3
 ```
 
 Familienkarte:

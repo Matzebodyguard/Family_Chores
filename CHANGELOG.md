@@ -1,6 +1,12 @@
 # Changelog
 
-## 0.2.2
+## 0.2.3
+- Breiten-/Responsive-Problem der Karten behoben.
+- Responsive Layouts richten sich jetzt nach der tatsächlichen Kartenbreite statt nach der Bildschirmbreite.
+- Karten auf 100 % Breite mit `min-width: 0` begrenzt.
+- Grid-Optionen für Home-Assistant-Sections ergänzt.
+
+## 0.2.3
 - Verwaltung vollständig aus der Familienkarte ausgelagert.
 - Neue Karte `custom:family-chores-admin-card` ergänzt.
 - Familienkarte enthält nur noch Aufgaben, Wochenziele, Punkte und Belohnungen.
