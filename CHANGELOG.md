@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2
+- Verwaltung vollständig aus der Familienkarte ausgelagert.
+- Neue Karte `custom:family-chores-admin-card` ergänzt.
+- Familienkarte enthält nur noch Aufgaben, Wochenziele, Punkte und Belohnungen.
+- Admin-Karte enthält Aufgabenverwaltung, Bestätigungen, Wochenziele, Punkteanpassung und Belohnungsverwaltung.
+
 ## 0.2.1
 - Repository-Struktur für GitHub/HACS vervollständigt.
 - HACS-Metadaten ergänzt.
