@@ -174,6 +174,45 @@ class FamilyChoresManager:
             self._finish_occurrence(t,today)
         await self._save();return {"status":status}
 
+    async def async_undo_complete(self,task_id,member):
+        t=next((x for x in self.state["tasks"] if x["id"]==task_id),None)
+        if not t:raise ValueError("Aufgabe nicht gefunden")
+        today=self._today(); assignees=self._current_assignees(t)
+        if member not in assignees:raise ValueError("Diese Aufgabe ist aktuell nicht dieser Person zugewiesen")
+        individual=t.get("completion_mode")=="individual" and len(assignees)>1
+
+        candidates=[h for h in self.state["history"]
+                    if h.get("task_id")==task_id and h.get("due_date")==today.isoformat()
+                    and h.get("status") in ("completed","pending")
+                    and (not individual or h.get("member")==member)]
+        if not candidates:return {"status":"not_completed"}
+        rec=candidates[-1]
+
+        # If points were already credited, remove exactly those points again.
+        if rec.get("status")=="completed":
+            who=rec.get("member")
+            if who in self.members:
+                self.state["scores"][who]=int(self.state["scores"].get(who,0))-int(rec.get("points",0))
+
+        self.state["history"].remove(rec)
+
+        # Re-open a one-off task.
+        if t.get("recurrence")=="once":
+            t["completed_once"]=False
+
+        # Rotation advances only once the occurrence is fully completed. If this
+        # undo re-opens a rotated occurrence, move the rotation one step back.
+        rot=[x for x in t.get("rotation",[]) if x in self.members]
+        if rot and rec.get("status")=="completed":
+            # After completion the current assignee is already the next one.
+            # Only rewind when the removed record belonged to the previous slot.
+            prev=(int(t.get("rotation_index",0))-1)%len(rot)
+            if rec.get("member")==rot[prev]:
+                t["rotation_index"]=prev
+
+        await self._save()
+        return {"status":"undone"}
+
     async def async_confirm(self,history_id,approved):
         rec=next((x for x in self.state["history"] if x["id"]==history_id),None)
         if not rec or rec.get("status")!="pending":raise ValueError("Keine offene Bestätigung gefunden")

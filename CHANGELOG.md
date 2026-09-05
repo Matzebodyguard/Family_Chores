@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1
+- Erledigte Aufgaben können in der Familienkarte wieder zurückgenommen werden.
+- Bereits gutgeschriebene Punkte werden dabei automatisch abgezogen.
+- Offene Bestätigungsmeldungen können ebenfalls zurückgenommen werden.
+- Einmalige Aufgaben werden wieder geöffnet; Rotation wird bei Bedarf zurückgesetzt.
+
 ## 0.3.0
 - Ansichten Heute, Diese Woche und Alle in der Familienkarte.
 - Neue Aufgabenoption `completion_mode`: gemeinsam oder individuell.

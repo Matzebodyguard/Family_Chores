@@ -13,7 +13,7 @@ PLATFORMS=["sensor"]
 async def async_setup(hass:HomeAssistant,config:dict)->bool:
     hass.data.setdefault(DOMAIN,{})
     await hass.http.async_register_static_paths([StaticPathConfig(STATIC_URL,str(Path(__file__).parent/"frontend"),False)])
-    for cmd in (ws_get_data,ws_add_task,ws_update_task,ws_delete_task,ws_complete,ws_confirm,ws_adjust_points,ws_set_weekly_goal,ws_add_reward,ws_update_reward,ws_delete_reward,ws_redeem_reward):
+    for cmd in (ws_get_data,ws_add_task,ws_update_task,ws_delete_task,ws_complete,ws_undo_complete,ws_confirm,ws_adjust_points,ws_set_weekly_goal,ws_add_reward,ws_update_reward,ws_delete_reward,ws_redeem_reward):
         websocket_api.async_register_command(hass,cmd)
     return True
 
@@ -64,6 +64,12 @@ async def ws_delete_task(hass,connection,msg):
 async def ws_complete(hass,connection,msg):
     try:connection.send_result(msg["id"],await _manager(hass).async_complete(msg["task_id"],msg["member"]))
     except ValueError as e:connection.send_error(msg["id"],"complete_failed",str(e))
+
+@websocket_api.websocket_command({vol.Required("type"):"family_chores/undo_complete",vol.Required("task_id"):str,vol.Required("member"):str})
+@websocket_api.async_response
+async def ws_undo_complete(hass,connection,msg):
+    try:connection.send_result(msg["id"],await _manager(hass).async_undo_complete(msg["task_id"],msg["member"]))
+    except ValueError as e:connection.send_error(msg["id"],"undo_failed",str(e))
 
 @websocket_api.websocket_command({vol.Required("type"):"family_chores/confirm",vol.Required("history_id"):str,vol.Required("approved"):bool})
 @websocket_api.async_response

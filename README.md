@@ -35,7 +35,7 @@ Familien-Aufgaben für Home Assistant mit Punktesystem, Wochenzielen, Rotation u
 ## Lovelace-Ressource
 
 ```text
-/family_chores_static/family-chores-card.js?v=0.3.0
+/family_chores_static/family-chores-card.js?v=0.3.1
 ```
 
 ## Karte
@@ -57,7 +57,7 @@ Die Familienansicht enthält keine Verwaltungs-Schaltfläche mehr. Die Verwaltun
 Zusätzliche Lovelace-Ressource:
 
 ```text
-/family_chores_static/family-chores-admin-card.js?v=0.3.0
+/family_chores_static/family-chores-admin-card.js?v=0.3.1
 ```
 
 Familienkarte:
